@@ -28,6 +28,11 @@
             <artifactId>sierra</artifactId>
             <version>3.4.6</version>
         </dependency>
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+            <version>3.6.2</version>
+        </dependency>
     </dependencies>
 
     <build>

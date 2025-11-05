@@ -1,6 +1,7 @@
 // src/main/java/com/sierra/previewer/SierraPreviewerApp.java
 package com.sierra.previewer;
 
+import com.formdev.flatlaf.FlatLightLaf;
 import javax.swing.*;
 
 public class SierraPreviewerApp {
@@ -10,7 +11,7 @@ public class SierraPreviewerApp {
         SwingUtilities.invokeLater(() -> {
             try {
                 // Set a modern Look and Feel if available
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                UIManager.setLookAndFeel(new FlatLightLaf());
             } catch (Exception e) {
                 System.err.println("Could not set System Look and Feel.");
             }
