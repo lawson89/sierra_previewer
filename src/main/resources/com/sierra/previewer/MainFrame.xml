@@ -2,10 +2,15 @@
 <!DOCTYPE column-panel SYSTEM "sierra.dtd">
 
 <column-panel>
-
     <row-panel weight="1">
 
-        <scroll-pane name="editorScrollPane" weight="1"/>
+        <column-panel weight="1">
+            
+            <label name="filePathLabel" text="New File" padding="4, 6, 4, 6"/>
+            
+            <scroll-pane name="editorScrollPane" weight="1"/>
+            
+        </column-panel>
 
         <column-panel name="previewPanel" padding="5, 5, 5, 5" weight="1">
             <label text="Preview will appear here."
@@ -16,7 +21,6 @@
         </column-panel>
 
     </row-panel>
-
+    
     <label name="statusBar" text="Ready." padding="2, 5, 2, 5"/>
-
 </column-panel>
