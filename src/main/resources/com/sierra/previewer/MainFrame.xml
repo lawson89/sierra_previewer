@@ -4,9 +4,7 @@
 <column-panel>
     <row-panel weight="1">
 
-        <column-panel weight="1">
-            
-            <label name="filePathLabel" text="New File" padding="4, 6, 4, 6"/>
+        <column-panel weight="1">           
             
             <scroll-pane name="editorScrollPane" weight="1"/>
             
@@ -21,6 +19,6 @@
         </column-panel>
 
     </row-panel>
-    
+    <label name="filePathLabel" text="" padding="4, 6, 4, 6"/>
     <label name="statusBar" text="Ready." padding="2, 5, 2, 5"/>
 </column-panel>

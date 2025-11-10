@@ -5,6 +5,7 @@ import com.sierra.previewer.model.RenderError;
 import com.sierra.previewer.model.RenderResult;
 import java.awt.*;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutionException;
@@ -60,7 +61,7 @@ public class MainFrame extends JFrame {
         setContentPane(UILoader.load(this, "MainFrame.xml")); // Assumes file is in resources
 
         setupMenuBar();
-        
+
         this.fileChooser = new JFileChooser();
         FileNameExtensionFilter xmlFilter = new FileNameExtensionFilter("XML Files (*.xml)", "xml");
         fileChooser.setFileFilter(xmlFilter);
@@ -145,8 +146,8 @@ public class MainFrame extends JFrame {
     }
 
     /**
-     * Kicks off a SwingWorker to load a file's content
-     * onto a background thread.
+     * Kicks off a SwingWorker to load a file's content onto a background
+     * thread.
      */
     private void loadFile(File file) {
         filePathLabel.setText("Loading " + file.getName() + "...");
@@ -155,35 +156,45 @@ public class MainFrame extends JFrame {
     }
 
     /**
-     * Callback that runs on the EDT after the file is loaded.
-     * Updates the UI with the file content and path.
+     * Callback that runs on the EDT after the file is loaded. Updates the UI
+     * with the file content and path.
      */
     private void displayFileContent(FileLoadResult result) {
-        if (result instanceof FileLoadResult.Success success) {
-            editorPane.setText(success.content());
-            editorPane.setCaretPosition(0); // Scroll to top
-            filePathLabel.setText(success.path().toAbsolutePath().toString());
-            
-            // Re-render the preview with the new content
-            triggerRender(); 
-        } else if (result instanceof FileLoadResult.Error error) {
-            filePathLabel.setText("Error loading file.");
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Could not read file:\n" + error.exception().getMessage(),
-                    "File Load Error",
-                    JOptionPane.ERROR_MESSAGE
-            );
+        switch (result) {
+            case FileLoadResult.Success success -> {
+                editorPane.setText(success.content());
+                editorPane.setCaretPosition(0); // Scroll to top
+                filePathLabel.setText(success.path().toAbsolutePath().toString());
+
+                // Re-render the preview with the new content
+                triggerRender();
+            }
+            case FileLoadResult.Error error -> {
+                filePathLabel.setText("Error loading file.");
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Could not read file:\n" + error.exception().getMessage(),
+                        "File Load Error",
+                        JOptionPane.ERROR_MESSAGE
+                );
+            }
+            default -> {
+            }
         }
     }
-    
+
     /**
-     * A sealed record interface to pass file loading results
-     * back to the EDT.
+     * A sealed record interface to pass file loading results back to the EDT.
      */
     private sealed interface FileLoadResult {
-        record Success(String content, Path path) implements FileLoadResult {}
-        record Error(Exception exception) implements FileLoadResult {}
+
+        record Success(String content, Path path) implements FileLoadResult {
+
+        }
+
+        record Error(Exception exception) implements FileLoadResult {
+
+        }
     }
 
     /**
@@ -206,7 +217,7 @@ public class MainFrame extends JFrame {
             try {
                 String content = Files.readString(filePath);
                 return new FileLoadResult.Success(content, filePath);
-            } catch (Exception e) {
+            } catch (IOException e) {
                 return new FileLoadResult.Error(e);
             }
         }
@@ -222,7 +233,7 @@ public class MainFrame extends JFrame {
             }
         }
     }
-    
+
     /**
      * Creates the custom RSyntaxTextArea and adds it to the
      * <scroll-pane> placeholder that Sierra injected.
