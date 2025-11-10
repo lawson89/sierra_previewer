@@ -8,16 +8,17 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
+
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 
-// --- Import correct Sierra classes ---
 import org.httprpc.sierra.UILoader;
 import org.httprpc.sierra.Outlet;
 
@@ -32,9 +33,11 @@ public class MainFrame extends JFrame {
     private final RenderingEngine renderingEngine;
     private final Timer debounceTimer;
 
+    // --- File Handling State ---
+    private final JFileChooser fileChooser;
+    private Path currentFilePath = null; // Stores the path of the currently loaded file
+
     // --- UI Components (Injected by Sierra) ---
-    // These fields are populated by UILoader based on the 'name' tags
-    // in the MainFrame.xml file, using the @Outlet annotation.
     @Outlet
     private JScrollPane editorScrollPane; // The <scroll-pane> placeholder
 
@@ -48,32 +51,35 @@ public class MainFrame extends JFrame {
     private JLabel filePathLabel; // The <label> for the file path
 
     // --- Manually Created Components ---
-    // RSyntaxTextArea is a custom component not in the DTD,
-    // so we create it manually and add it to our placeholder.
     private RSyntaxTextArea editorPane;
-
-    private final JFileChooser fileChooser;
+    private JMenuItem saveItem; // Reference to the manually created menu item
 
     public MainFrame() {
-        super("Sierra UI Previewer"); // Title is set here
+        super("Sierra UI Previewer");
         this.renderingEngine = new RenderingEngine();
 
-        setContentPane(UILoader.load(this, "MainFrame.xml")); // Assumes file is in resources
+        // 1. Load the UI from the declarative .xml file
+        setContentPane(UILoader.load(this, "MainFrame.xml"));
 
-        setupMenuBar();
-
+        // 2. Setup the File Chooser
         this.fileChooser = new JFileChooser();
         FileNameExtensionFilter xmlFilter = new FileNameExtensionFilter("XML Files (*.xml)", "xml");
         fileChooser.setFileFilter(xmlFilter);
-        fileChooser.setAcceptAllFileFilterUsed(false); // Only show XML files
+        fileChooser.setAcceptAllFileFilterUsed(false);
 
-        // Manually set up components not supported by the DTD
+        // 3. Setup the menu bar
+        setupMenuBar();
+
+        // 4. Manually set up components not supported by the DTD
         setupCustomEditor();
 
+        // 5. Set layout for previewPanel
         previewPanel.setLayout(new BorderLayout());
 
+        // 6. Setup Control Subsystem (Debounce Timer)
         this.debounceTimer = setupDebounceTimer();
 
+        // 7. Wire editor events
         editorPane.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
@@ -93,25 +99,23 @@ public class MainFrame extends JFrame {
             }
         });
 
-        // 6. Trigger an initial render (Identical to original)
+        // 8. Trigger an initial render
         triggerRender();
     }
 
+    // --- Menu Setup ---
     /**
-     * Creates and sets the application's menu bar. This is done manually as
-     * JMenuBar is not in the Sierra DTD.
+     * Creates and sets the application's menu bar.
      */
     private void setupMenuBar() {
-        // 1. Create the main menu bar
         JMenuBar menuBar = new JMenuBar();
 
-        // 2. Create the "File" menu
+        // --- File Menu ---
         JMenu fileMenu = new JMenu("File");
 
-        // 3. Create the "Open" item and add it to "File"
-        JMenuItem openItem = new JMenuItem("Open");
+        // Open
+        JMenuItem openItem = new JMenuItem("Open...");
         openItem.addActionListener(e -> {
-            // Show the file chooser
             int result = fileChooser.showOpenDialog(MainFrame.this);
             if (result == JFileChooser.APPROVE_OPTION) {
                 File selectedFile = fileChooser.getSelectedFile();
@@ -120,36 +124,124 @@ public class MainFrame extends JFrame {
         });
         fileMenu.add(openItem);
 
-        // 4. Create the "About" menu
-        JMenu aboutMenu = new JMenu("About");
+        // Separator
+        fileMenu.addSeparator();
 
-        // 5. Create the "About" item (to go inside the "About" menu)
-        // We add an item inside the menu, as the JMenu itself isn't clickable.
+        // Save
+        saveItem = new JMenuItem("Save");
+        saveItem.addActionListener(e -> saveFile());
+        saveItem.setEnabled(false); // Disabled until a file is successfully loaded
+        fileMenu.add(saveItem);
+
+        // Separator
+        fileMenu.addSeparator();
+
+        // Exit
+        JMenuItem exitItem = new JMenuItem("Exit");
+        exitItem.addActionListener(e -> {
+            System.exit(0); // Exit the application
+        });
+        fileMenu.add(exitItem);
+
+        menuBar.add(fileMenu);
+
+        // --- About Menu ---
+        JMenu aboutMenu = new JMenu("About");
         JMenuItem aboutItem = new JMenuItem("About Previewer");
         aboutItem.addActionListener(e -> {
-            // Show the requested message box
             JOptionPane.showMessageDialog(
-                    this, // Parent component
-                    "Sierra DSL Previewer", // Message
-                    "About", // Dialog title
+                    this,
+                    "Sierra DSL Previewer",
+                    "About",
                     JOptionPane.INFORMATION_MESSAGE
             );
         });
         aboutMenu.add(aboutItem);
-
-        // 6. Add both menus to the menu bar
-        menuBar.add(fileMenu);
         menuBar.add(aboutMenu);
 
-        // 7. Set this menu bar on the JFrame
         this.setJMenuBar(menuBar);
     }
 
+    // --- Editor Setup ---
+    /**
+     * Creates the custom RSyntaxTextArea and adds it to the
+     * <scroll-pane> placeholder that Sierra injected.
+     */
+    private void setupCustomEditor() {
+        editorPane = new RSyntaxTextArea(25, 80);
+        editorPane.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_XML);
+        editorPane.setCodeFoldingEnabled(true);
+        editorPane.setAntiAliasingEnabled(true);
+        editorPane.setEditable(true); // Ensure it's editable
+
+        editorScrollPane.setViewportView(editorPane);
+    }
+
+    // --- Rendering/Control Logic ---
+    /**
+     * Implements the debounce mechanism.
+     */
+    private Timer setupDebounceTimer() {
+        Timer timer = new Timer(1000, (e) -> triggerRender());
+        timer.setRepeats(false);
+        return timer;
+    }
+
+    /**
+     * Kicks off the rendering process on a background thread.
+     */
+    private void triggerRender() {
+        statusBar.setText("Rendering...");
+        String xmlText = editorPane.getText();
+
+        // MODIFIED: Pass currentFilePath to the RenderWorker
+        RenderWorker worker = new RenderWorker(xmlText, currentFilePath, renderingEngine, this::displayRenderResult);
+        worker.execute();
+    }
+
+    /**
+     * This is the callback that runs on the EDT when the SwingWorker is done.
+     */
+    private void displayRenderResult(RenderResult result) {
+        switch (result) {
+            case RenderResult.Success success -> {
+                previewPanel.removeAll();
+                JComponent component = success.component();
+                previewPanel.add(component, BorderLayout.CENTER);
+                previewPanel.revalidate();
+                previewPanel.repaint();
+
+                this.setTitle("Sierra UI Previewer");
+                if (saveItem == null || saveItem.isEnabled()) {
+                    statusBar.setText("Render successful.");
+                }
+            }
+            case RenderResult.Error error -> {
+                String errorMessage = error.details().toString();
+                statusBar.setText("Error: " + errorMessage);
+
+//                JOptionPane.showMessageDialog(
+//                        this,
+//                        errorMessage,
+//                        "Render Error",
+//                        JOptionPane.ERROR_MESSAGE
+//                );
+            }
+            default -> {
+            }
+        }
+    }
+
+    // --- FILE LOAD/SAVE LOGIC ---
     /**
      * Kicks off a SwingWorker to load a file's content onto a background
      * thread.
      */
     private void loadFile(File file) {
+        // Reset save state while loading
+        saveItem.setEnabled(false);
+        currentFilePath = null;
+
         filePathLabel.setText("Loading " + file.getName() + "...");
         FileLoaderWorker worker = new FileLoaderWorker(file.toPath(), this::displayFileContent);
         worker.execute();
@@ -163,8 +255,12 @@ public class MainFrame extends JFrame {
         switch (result) {
             case FileLoadResult.Success success -> {
                 editorPane.setText(success.content());
-                editorPane.setCaretPosition(0); // Scroll to top
+                editorPane.setCaretPosition(0);
+
+                // Set file state and enable Save
+                currentFilePath = success.path();
                 filePathLabel.setText(success.path().toAbsolutePath().toString());
+                saveItem.setEnabled(true);
 
                 // Re-render the preview with the new content
                 triggerRender();
@@ -184,8 +280,44 @@ public class MainFrame extends JFrame {
     }
 
     /**
-     * A sealed record interface to pass file loading results back to the EDT.
+     * Kicks off a SwingWorker to save the current content back to the loaded
+     * file path.
      */
+    private void saveFile() {
+        if (currentFilePath == null) {
+            JOptionPane.showMessageDialog(this, "No file is currently open.", "Save Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        saveItem.setEnabled(false); // Disable save during save operation
+        statusBar.setText("Saving to " + currentFilePath.getFileName() + "...");
+
+        String content = editorPane.getText();
+
+        FileSaverWorker worker = new FileSaverWorker(currentFilePath, content, this::displaySaveResult);
+        worker.execute();
+    }
+
+    /**
+     * Callback that runs on the EDT after the file is saved.
+     */
+    private void displaySaveResult(FileSaveResult result) {
+        saveItem.setEnabled(true); // Re-enable save
+
+        if (result instanceof FileSaveResult.Success) {
+            statusBar.setText("File saved successfully.");
+        } else if (result instanceof FileSaveResult.Error error) {
+            statusBar.setText("Save failed.");
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Could not save file:\n" + error.exception().getMessage(),
+                    "File Save Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    // --- INNER CLASSES FOR FILE LOAD/SAVE ---
     private sealed interface FileLoadResult {
 
         record Success(String content, Path path) implements FileLoadResult {
@@ -197,10 +329,6 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /**
-     * The SwingWorker implementation that reads the file on a background
-     * thread.
-     */
     private static class FileLoaderWorker extends SwingWorker<FileLoadResult, Void> {
 
         private final Path filePath;
@@ -212,8 +340,7 @@ public class MainFrame extends JFrame {
         }
 
         @Override
-        protected FileLoadResult doInBackground() throws Exception {
-            // This runs on a background thread
+        protected FileLoadResult doInBackground() {
             try {
                 String content = Files.readString(filePath);
                 return new FileLoadResult.Success(content, filePath);
@@ -224,7 +351,6 @@ public class MainFrame extends JFrame {
 
         @Override
         protected void done() {
-            // This runs on the EDT
             try {
                 FileLoadResult result = get();
                 callback.accept(result);
@@ -234,111 +360,74 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /**
-     * Creates the custom RSyntaxTextArea and adds it to the
-     * <scroll-pane> placeholder that Sierra injected.
-     */
-    private void setupCustomEditor() {
-        editorPane = new RSyntaxTextArea(25, 80);
-        editorPane.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_XML);
-        editorPane.setCodeFoldingEnabled(true);
-        editorPane.setAntiAliasingEnabled(true);
+    private sealed interface FileSaveResult {
 
-        // Add our custom editor to the placeholder injected by UILoader
-        editorScrollPane.setViewportView(editorPane);
+        record Success() implements FileSaveResult {
+        }
+
+        record Error(Exception exception) implements FileSaveResult {
+
+        }
     }
 
-    //
-    // --- ALL LOGIC METHODS BELOW ARE 100% IDENTICAL TO YOUR ORIGINAL CODE ---
-    //
-    // (setupEditorPane, setupPreviewPane, setupMainLayout are removed)
-    //
-    /**
-     * Implements the debounce mechanism (Identical)
-     */
-    private Timer setupDebounceTimer() {
-        // Create the timer with the recommended 750ms delay
-        Timer timer = new Timer(750, (e) -> triggerRender());
-        timer.setRepeats(false); // Make it a one-shot timer
-        return timer;
-    }
+    private static class FileSaverWorker extends SwingWorker<FileSaveResult, Void> {
 
-    /**
-     * Kicks off the rendering process on a background thread. (Identical)
-     */
-    private void triggerRender() {
-        statusBar.setText("Rendering...");
-        String xmlText = editorPane.getText();
+        private final Path filePath;
+        private final String content;
+        private final Consumer<FileSaveResult> callback;
 
-        // Use SwingWorker for background rendering
-        RenderWorker worker = new RenderWorker(xmlText, renderingEngine, this::displayRenderResult);
-        worker.execute();
-    }
+        FileSaverWorker(Path filePath, String content, Consumer<FileSaveResult> callback) {
+            this.filePath = filePath;
+            this.content = content;
+            this.callback = callback;
+        }
 
-    /**
-     * This is the callback that runs on the EDT when the SwingWorker is done.
-     * It handles the result from the rendering engine. (Identical to original,
-     * and works because we set previewPanel's layout to BorderLayout in the
-     * constructor).
-     */
-    private void displayRenderResult(RenderResult result) {
-        switch (result) {
-            case RenderResult.Success success -> {
-                previewPanel.removeAll();
-                JComponent component = success.component();
-                System.out.println("Got back: " + component.getClass().getName());
-                previewPanel.add(success.component(), BorderLayout.CENTER); // This now works
-                previewPanel.revalidate();
-                previewPanel.repaint();
-
-                // Update frame title
-                this.setTitle("Sierra UI Previewer");
-                statusBar.setText("Render successful.");
-
+        @Override
+        protected FileSaveResult doInBackground() {
+            try {
+                // Write content back to the original file, replacing the old content
+                Files.writeString(filePath, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                return new FileSaveResult.Success();
+            } catch (IOException e) {
+                return new FileSaveResult.Error(e);
             }
-            case RenderResult.Error error -> {
-                String errorMessage = error.details().toString();
-                System.out.println(errorMessage);
-                statusBar.setText("Error: " + errorMessage);
+        }
 
-                // Show the modal error dialog as specified
-                JOptionPane.showMessageDialog(
-                        this,
-                        errorMessage,
-                        "Render Error",
-                        JOptionPane.ERROR_MESSAGE
-                );
-            }
-            default -> {
+        @Override
+        protected void done() {
+            try {
+                FileSaveResult result = get();
+                callback.accept(result);
+            } catch (InterruptedException | ExecutionException e) {
+                callback.accept(new FileSaveResult.Error(e));
             }
         }
     }
 
-    /**
-     * The SwingWorker implementation that runs the rendering on a background
-     * thread. (Identical)
-     */
+    // --- INNER CLASS FOR RENDERING ---
     private static class RenderWorker extends SwingWorker<RenderResult, Void> {
 
         private final String xmlText;
+        private final Path targetPath; // ADDED: Field to hold the target path
         private final RenderingEngine engine;
-        private final Consumer<RenderResult> callback; // To be called on EDT
+        private final Consumer<RenderResult> callback;
 
-        RenderWorker(String xmlText, RenderingEngine engine, Consumer<RenderResult> callback) {
+        // MODIFIED: Constructor now accepts Path
+        RenderWorker(String xmlText, Path targetPath, RenderingEngine engine, Consumer<RenderResult> callback) {
             this.xmlText = xmlText;
+            this.targetPath = targetPath; // Store the path
             this.engine = engine;
             this.callback = callback;
         }
 
         @Override
         protected RenderResult doInBackground() throws Exception {
-            // This runs on a background thread
-            return engine.render(xmlText);
+            // MODIFIED: Pass the path to the rendering engine
+            return engine.render(xmlText, targetPath);
         }
 
         @Override
         protected void done() {
-            // This runs on the EDT (Section V.2)
             try {
                 RenderResult result = get();
                 callback.accept(result);

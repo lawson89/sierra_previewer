@@ -15,24 +15,40 @@ public class RenderingEngine {
 
     }
 
-    public RenderResult render(String xmlText) {
+    /**
+     * Renders the given XML text by first saving it to a target file.
+     * If targetPath is not null, it saves to that file.
+     * If targetPath is null, it saves to a temporary file.
+     * * @param xmlText The XML content to render.
+     * @param targetPath The file path to save the XML content to. Can be null.
+     * @return The result of the rendering operation.
+     */
+    public RenderResult render(String xmlText, Path targetPath) { // MODIFIED SIGNATURE
         if (xmlText == null || xmlText.isBlank()) {
             return new RenderResult.Success(new JPanel());
         }
+        
+        Path savePath = targetPath;
 
         try {
+            if (savePath == null) {
+                // If no file is open, create a temporary file as fallback
+                savePath = Files.createTempFile("sierrapreview", ".xml");
+                // Only delete temporary files on exit
+                savePath.toFile().deleteOnExit(); 
+            }
+            
+            // Write the content to the chosen path (either the open file or the temp file)
+            // This is the core change: saving to the targetPath instead of always a temp file.
+            Files.write(savePath, xmlText.getBytes("UTF-8"), 
+                    StandardOpenOption.CREATE, 
+                    StandardOpenOption.TRUNCATE_EXISTING, 
+                    StandardOpenOption.WRITE);
 
-            Path tempFilePath = Files.createTempFile("sierrapreview", ".xml");
+            System.out.println("Data saved for rendering to file: " + savePath.toAbsolutePath());
 
-            Files.write(tempFilePath, xmlText.getBytes("UTF-8"), StandardOpenOption.WRITE);
-
-            System.out.println("Data saved to temporary file: " + tempFilePath.toAbsolutePath());
-
-            // Optionally, delete the file on exit
-            tempFilePath.toFile().deleteOnExit();
-
-            JComponent rootComponent = UILoader.load(tempFilePath);
-            return new RenderResult.Success((JComponent) rootComponent);
+            JComponent rootComponent = UILoader.load(savePath);
+            return new RenderResult.Success(rootComponent);
         } catch (IOException e) {
             return new RenderResult.Error(new RenderError(e.getMessage(), e));
         }
