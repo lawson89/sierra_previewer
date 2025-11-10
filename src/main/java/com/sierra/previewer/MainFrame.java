@@ -19,6 +19,9 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 
+import org.fife.ui.autocomplete.AutoCompletion;
+import org.fife.ui.autocomplete.CompletionProvider;
+
 import org.httprpc.sierra.UILoader;
 import org.httprpc.sierra.Outlet;
 
@@ -162,6 +165,13 @@ public class MainFrame extends JFrame {
         this.setJMenuBar(menuBar);
     }
 
+    /**
+     * Creates and returns the completion provider for Sierra XML.
+     */
+    private CompletionProvider createCompletionProvider() {
+        return new SierraXMLCompletionProvider();
+    }
+
     // --- Editor Setup ---
     /**
      * Creates the custom RSyntaxTextArea and adds it to the
@@ -173,6 +183,16 @@ public class MainFrame extends JFrame {
         editorPane.setCodeFoldingEnabled(true);
         editorPane.setAntiAliasingEnabled(true);
         editorPane.setEditable(true); // Ensure it's editable
+
+        CompletionProvider provider = createCompletionProvider();
+
+        // Create the auto-completion manager
+        AutoCompletion ac = new AutoCompletion(provider);
+        ac.setAutoActivationEnabled(true);
+        ac.setAutoActivationDelay(500); // Activate after 500ms of typing
+
+        // Install the auto-completion on the editor pane
+        ac.install(editorPane);
 
         editorScrollPane.setViewportView(editorPane);
     }
