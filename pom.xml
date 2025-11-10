@@ -26,7 +26,7 @@
         <dependency>
             <groupId>org.httprpc</groupId>
             <artifactId>sierra</artifactId>
-            <version>3.4.6</version>
+            <version>3.4.8</version>
         </dependency>
         <dependency>
             <groupId>com.formdev</groupId>
