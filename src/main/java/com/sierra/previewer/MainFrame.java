@@ -78,6 +78,23 @@ public class MainFrame extends JFrame {
 
         // 5. Set layout for previewPanel
         previewPanel.setLayout(new BorderLayout());
+        
+        // Create the JSplitPane with the editor on the left and the preview on the right
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, editorScrollPane, previewPanel);
+        
+        // Set the initial divider location (e.g., 50% of the window width)
+        splitPane.setDividerLocation(0.5); 
+        
+        // Ensure space is split equally when the frame is resized
+        splitPane.setResizeWeight(0.5); 
+
+        // Create a new main panel to hold the JSplitPane (Center) and the StatusBar (South)
+        JPanel mainContentPanel = new JPanel(new BorderLayout());
+        mainContentPanel.add(splitPane, BorderLayout.CENTER);
+        mainContentPanel.add(statusBar, BorderLayout.SOUTH);
+        
+        // Set the new panel as the frame's content pane
+        setContentPane(mainContentPanel);
 
         // 6. Setup Control Subsystem (Debounce Timer)
         this.debounceTimer = setupDebounceTimer();
