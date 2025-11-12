@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import javax.swing.*;
@@ -35,6 +36,7 @@ public class MainFrame extends JFrame {
     // --- Subsystems ---
     private final RenderingEngine renderingEngine;
     private final Timer debounceTimer;
+    private final RecentFilesManager recentFilesManager; // NEW: Manager instance
 
     // --- File Handling State ---
     private final JFileChooser fileChooser;
@@ -56,10 +58,14 @@ public class MainFrame extends JFrame {
     // --- Manually Created Components ---
     private RSyntaxTextArea editorPane;
     private JMenuItem saveItem; // Reference to the manually created menu item
+    private JMenu recentMenu; // New reference for the Recent Files menu
 
     public MainFrame() {
         super("Sierra UI Previewer");
         this.renderingEngine = new RenderingEngine();
+
+        // 0. Initialize the Recent Files Manager
+        this.recentFilesManager = new RecentFilesManager(MainFrame.class);
 
         // 1. Load the UI from the declarative .xml file
         setContentPane(UILoader.load(this, "MainFrame.xml"));
@@ -78,21 +84,21 @@ public class MainFrame extends JFrame {
 
         // 5. Set layout for previewPanel
         previewPanel.setLayout(new BorderLayout());
-        
+
         // Create the JSplitPane with the editor on the left and the preview on the right
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, editorScrollPane, previewPanel);
-        
+
         // Set the initial divider location (e.g., 50% of the window width)
-        splitPane.setDividerLocation(0.5); 
-        
+        splitPane.setDividerLocation(0.5);
+
         // Ensure space is split equally when the frame is resized
-        splitPane.setResizeWeight(0.5); 
+        splitPane.setResizeWeight(0.5);
 
         // Create a new main panel to hold the JSplitPane (Center) and the StatusBar (South)
         JPanel mainContentPanel = new JPanel(new BorderLayout());
         mainContentPanel.add(splitPane, BorderLayout.CENTER);
         mainContentPanel.add(statusBar, BorderLayout.SOUTH);
-        
+
         // Set the new panel as the frame's content pane
         setContentPane(mainContentPanel);
 
@@ -144,7 +150,11 @@ public class MainFrame extends JFrame {
         });
         fileMenu.add(openItem);
 
-        // Separator
+        // --- NEW: Recent Menu ---
+        recentMenu = new JMenu("Recent");
+        fileMenu.add(recentMenu);
+        updateRecentMenu(); // Populate the menu initially
+
         fileMenu.addSeparator();
 
         // Save
@@ -183,6 +193,35 @@ public class MainFrame extends JFrame {
     }
 
     /**
+     * Clears and repopulates the Recent Files menu based on the
+     * RecentFilesManager list.
+     */
+    private void updateRecentMenu() {
+        recentMenu.removeAll();
+        List<Path> recentFiles = recentFilesManager.getRecentFiles();
+
+        if (recentFiles.isEmpty()) {
+            recentMenu.setEnabled(false);
+            JMenuItem emptyItem = new JMenuItem("No recent files");
+            emptyItem.setEnabled(false);
+            recentMenu.add(emptyItem);
+        } else {
+            recentMenu.setEnabled(true);
+            for (int i = 0; i < recentFiles.size(); i++) {
+                Path fullPath = recentFiles.get(i);
+
+                // Display only the file name in the menu item, but use the full path for loading
+                String label = (i + 1) + ". " + fullPath.getFileName().toString();
+                JMenuItem item = new JMenuItem(label);
+
+                // Use a local variable for the path in the lambda
+                item.addActionListener(e -> loadFile(fullPath.toFile()));
+                recentMenu.add(item);
+            }
+        }
+    }
+
+    /**
      * Creates and returns the completion provider for Sierra XML.
      */
     private CompletionProvider createCompletionProvider() {
@@ -209,7 +248,9 @@ public class MainFrame extends JFrame {
         ac.setAutoActivationDelay(500); // Activate after 500ms of typing
 
         // Install the auto-completion on the editor pane
-        ac.install(editorPane);
+        if (provider != null) {
+            ac.install(editorPane);
+        }
 
         editorScrollPane.setViewportView(editorPane);
     }
@@ -231,7 +272,6 @@ public class MainFrame extends JFrame {
         statusBar.setText("Rendering...");
         String xmlText = editorPane.getText();
 
-        // MODIFIED: Pass currentFilePath to the RenderWorker
         RenderWorker worker = new RenderWorker(xmlText, currentFilePath, renderingEngine, this::displayRenderResult);
         worker.execute();
     }
@@ -256,13 +296,6 @@ public class MainFrame extends JFrame {
             case RenderResult.Error error -> {
                 String errorMessage = error.details().toString();
                 statusBar.setText("Error: " + errorMessage);
-
-//                JOptionPane.showMessageDialog(
-//                        this,
-//                        errorMessage,
-//                        "Render Error",
-//                        JOptionPane.ERROR_MESSAGE
-//                );
             }
             default -> {
             }
@@ -298,6 +331,10 @@ public class MainFrame extends JFrame {
                 currentFilePath = success.path();
                 filePathLabel.setText(success.path().toAbsolutePath().toString());
                 saveItem.setEnabled(true);
+
+                // NEW: Update the Recent Files list via the manager
+                recentFilesManager.addFile(currentFilePath);
+                updateRecentMenu(); // Refresh the menu display
 
                 // Re-render the preview with the new content
                 triggerRender();
