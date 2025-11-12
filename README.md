@@ -23,6 +23,6 @@ java -jar sierra-ui-previewer-executable.jar
 Note that Sierra and therefore this project require Java 21 or later.
 
 
-<img src="README/sierra_previewer.png" width="598px"/>
+<img src="README/sierra_previewer.png" width="830px"/>
 
 
