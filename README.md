@@ -8,7 +8,8 @@ The Sierra project is located at [https://github.com/HTTP-RPC/Sierra](https://gi
 This project aims to provide a live editor for XML files that Sierra uses to lay out Swing UIs.
 You should be able to quickly assemble a UI by editing an XML file in the left pane and see the resultiing UI in the right pane.
 
-This porject os currently under heavy development so no release is provided.
+This project is currently under heavy development so no release is provided.
+
 However it is a standard maven project so please run the follwing after download 
 ```shell
 mvn clean package
@@ -22,6 +23,6 @@ java -jar sierra-ui-previewer-executable.jar
 Note that Sierra and therefore this project require Java 21 or later.
 
 
-<img src="README/sierra_previewer.png" width="432px"/>
+<img src="README/sierra_previewer.png" width="598px"/>
 
 
