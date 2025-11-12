@@ -10,7 +10,7 @@ You should be able to quickly assemble a UI by editing an XML file in the left p
 
 This project is currently under heavy development so no release is provided.
 
-However it is a standard maven project so please run the follwing after download 
+However it is a standard maven project so please run the following after download 
 ```shell
 mvn clean package
 ``` 
