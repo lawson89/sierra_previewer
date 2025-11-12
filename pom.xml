@@ -6,38 +6,38 @@
 
     <groupId>com.sierra.previewer</groupId>
     <artifactId>sierra-ui-previewer</artifactId>
-    <version>1.0.0</version>
+    <version>0.1.0</version>
     <packaging>jar</packaging>
 
     <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <rsyntax-version>3.6.0</rsyntax-version>
+        <autocomplete-version>3.3.2</autocomplete-version>
+        <sierra-version>3.4.8</sierra-version>
+        <flatlaf-version>3.6.2</flatlaf-version>
+        <maven.compiler.release>21</maven.compiler.release>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.fifesoft</groupId>
             <artifactId>rsyntaxtextarea</artifactId>
-            <version>3.4.0</version>
+            <version>${rsyntax-version}</version>
         </dependency>
         <dependency>
             <groupId>com.fifesoft</groupId>
             <artifactId>autocomplete</artifactId>
-            <version>3.3.2</version>
+            <version>${autocomplete-version}</version>
         </dependency>
-
-
-        <!-- https://mvnrepository.com/artifact/org.httprpc/sierra -->
         <dependency>
             <groupId>org.httprpc</groupId>
             <artifactId>sierra</artifactId>
-            <version>3.4.8</version>
+            <version>${sierra-version}</version>
         </dependency>
         <dependency>
             <groupId>com.formdev</groupId>
             <artifactId>flatlaf</artifactId>
-            <version>3.6.2</version>
+            <version>${flatlaf-version}</version>
         </dependency>
     </dependencies>
 
@@ -46,12 +46,35 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
-                <version>3.1.0</version>
+                <version>3.6.2</version>
                 <configuration>
                     <mainClass>com.sierra.previewer.SierraPreviewerApp</mainClass>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.sierra.previewer.SierraPreviewerApp</mainClass>
+                                </transformer>
+                            </transformers>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <finalName>${project.artifactId}-executable</finalName>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
+        
     </build>
 
 </project>
