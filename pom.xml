@@ -41,6 +41,11 @@
             <artifactId>flatlaf</artifactId>
             <version>${flatlaf-version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf-extras</artifactId>
+            <version>3.6.2</version>
+        </dependency>
         <!-- JUnit Jupiter API (Used for writing tests) -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

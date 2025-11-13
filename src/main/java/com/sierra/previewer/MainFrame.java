@@ -19,6 +19,7 @@ import com.sierra.previewer.model.RenderResult;
 import java.awt.*;
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -137,6 +138,11 @@ public class MainFrame extends JFrame {
                 // Style changes, not relevant for text
             }
         });
+        
+        // 7. load icon
+         URL iconURL = getClass().getResource("/sierra.png");
+        Image icon = new ImageIcon(iconURL).getImage();
+        this.setIconImage(icon);
 
         // 8. Trigger an initial render
         triggerRender();
