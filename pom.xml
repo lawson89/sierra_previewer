@@ -103,7 +103,7 @@
                                 </transformer>
                             </transformers>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <finalName>${project.artifactId}-executable</finalName>
+                            <finalName>${project.artifactId}-${project.version}-executable</finalName>
                         </configuration>
                     </execution>
                 </executions>
