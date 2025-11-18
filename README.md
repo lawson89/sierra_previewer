@@ -1,6 +1,10 @@
-# sierra_previewer
+### Attention: This application is now part of the Sierra project at [github link](https://github.com/HTTP-RPC/Sierra)
 
-# Introduction
+---
+
+## sierra_previewer
+
+## Introduction
 Sierra is an open-source framework for simplifying development of Java Swing applications.
 
 The Sierra project is located at [https://github.com/HTTP-RPC/Sierra](https://github.com/HTTP-RPC/Sierra)
